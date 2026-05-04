@@ -159,3 +159,78 @@ CompilationStatus UnknownLexemeAction() {
 	destroyToken(token);
 	return FAILED;
 }
+
+CompilationStatus KeywordLexemeAction(TokenLabel label) {
+    Token * token = createToken(_lexicalAnalyzer, label);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus RelationalOperatorLexemeAction(TokenLabel label) {
+    Token * token = createToken(_lexicalAnalyzer, label);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus PunctuationLexemeAction(TokenLabel label) {
+    Token * token = createToken(_lexicalAnalyzer, label);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus FloatLexemeAction() {
+    Token * token = createToken(_lexicalAnalyzer, FLOAT);
+    token->semanticValue->decimal = atof(token->lexeme);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus PercentageLexemeAction() {
+    Token * token = createToken(_lexicalAnalyzer, PERCENTAGE);
+    // Remover el '%' y parsear el número
+    char * lexemeCopy = strdup(token->lexeme);
+    lexemeCopy[strlen(lexemeCopy) - 1] = '\0';
+    token->semanticValue->decimal = atof(lexemeCopy) / 100.0;
+    free(lexemeCopy);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus StringLexemeAction() {
+    Token * token = createToken(_lexicalAnalyzer, STRING);
+    // El lexeme incluye las comillas; se puede guardar sin ellas
+    token->semanticValue->string = strndup(token->lexeme + 1, token->length - 2);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus DateLexemeAction() {
+    Token * token = createToken(_lexicalAnalyzer, DATE);
+    // Fecha en formato "DD-MM-YYYY" — se guarda como string sin comillas
+    token->semanticValue->string = strndup(token->lexeme + 1, token->length - 2);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}
+
+CompilationStatus IdentifierLexemeAction() {
+    Token * token = createToken(_lexicalAnalyzer, IDENTIFIER);
+    token->semanticValue->string = strdup(token->lexeme);
+    _logTokenAction(__FUNCTION__, token);
+    CompilationStatus status = pushToken(_lexicalAnalyzer, token);
+    destroyToken(token);
+    return status;
+}

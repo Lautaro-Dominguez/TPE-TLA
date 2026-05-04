@@ -27,6 +27,8 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 	/** Terminals. */
 
 	signed int integer;
+	double decimal;
+	char* string;
 	TokenLabel token;
 
 	/** Non-terminals. */
@@ -61,6 +63,44 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %token <token> OPEN_COMMENT
 %token <token> OPEN_PARENTHESIS
 %token <token> SUB
+%token <decimal>  FLOAT
+%token <decimal>  PERCENTAGE
+%token <string>   STRING
+%token <string>   DATE
+%token <string>   IDENTIFIER
+%token <token> INCOME
+%token <token> EXPENSES
+%token <token> ASSET
+%token <token> DEBT
+%token <token> GOAL
+%token <token> DERIVATED_DATA
+%token <token> AS
+%token <token> VALUE
+%token <token> CURRENCY
+%token <token> PERIODICITY
+%token <token> CATEGORY
+%token <token> FROM
+%token <token> UP
+%token <token> BALANCE
+%token <token> INTEREST
+%token <token> MIN_PAYMENT
+%token <token> AMOUNT
+%token <token> DEADLINE
+%token <token> MONTHLY
+%token <token> WEEKLY
+%token <token> DAILY
+%token <token> YEARLY
+%token <token> BIMONTHLY
+%token <token> ARS
+%token <token> USD
+%token <token> LT
+%token <token> GT
+%token <token> EQ
+%token <token> NE
+%token <token> LE
+%token <token> GE
+%token <token> COMMA
+%token <token> SEMICOLON
 
 %token <token> IGNORED
 %token <token> UNKNOWN

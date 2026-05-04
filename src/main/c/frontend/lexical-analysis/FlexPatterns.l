@@ -25,6 +25,14 @@ extern CompilationStatus LeaveMultilineCommentLexemeAction();
 extern CompilationStatus ParenthesisLexemeAction(TokenLabel label);
 extern CompilationStatus SubexpressionLexemeAction();
 extern CompilationStatus UnknownLexemeAction();
+extern CompilationStatus KeywordLexemeAction(TokenLabel label);
+extern CompilationStatus RelationalOperatorLexemeAction(TokenLabel label);
+extern CompilationStatus PunctuationLexemeAction(TokenLabel label);
+extern CompilationStatus FloatLexemeAction(); 
+extern CompilationStatus PercentageLexemeAction();
+extern CompilationStatus StringLexemeAction();
+extern CompilationStatus DateLexemeAction();
+extern CompilationStatus IdentifierLexemeAction();
 
 %}
 
@@ -64,6 +72,41 @@ whitespace			[[:space:]]+
 <MULTILINE_COMMENT>[^*]+			{ return IgnoredLexemeAction(); }
 <MULTILINE_COMMENT>.				{ return IgnoredLexemeAction(); }
 
+"//"[^\n]*                          { return IgnoredLexemeAction(); }
+
+
+"income"                            { return KeywordLexemeAction(INCOME); }
+"expenses"                          { return KeywordLexemeAction(EXPENSES); }
+"asset"                             { return KeywordLexemeAction(ASSET); }
+"debt"                              { return KeywordLexemeAction(DEBT); }
+"goal"                              { return KeywordLexemeAction(GOAL); }
+"derivatedData"                     { return KeywordLexemeAction(DERIVATED_DATA); }
+
+
+"as"                                { return KeywordLexemeAction(AS); }
+"value"                             { return KeywordLexemeAction(VALUE); }
+"currency"                          { return KeywordLexemeAction(CURRENCY); }
+"periodicity"                       { return KeywordLexemeAction(PERIODICITY); }
+"category"                          { return KeywordLexemeAction(CATEGORY); }
+"from"                              { return KeywordLexemeAction(FROM); }
+"up"                                { return KeywordLexemeAction(UP); }
+"balance"                           { return KeywordLexemeAction(BALANCE); }
+"interest"                          { return KeywordLexemeAction(INTEREST); }
+"minPayment"                        { return KeywordLexemeAction(MIN_PAYMENT); }
+"amount"                            { return KeywordLexemeAction(AMOUNT); }
+"deadline"                          { return KeywordLexemeAction(DEADLINE); }
+
+
+"monthly"                           { return KeywordLexemeAction(MONTHLY); }
+"weekly"                            { return KeywordLexemeAction(WEEKLY); }
+"daily"                             { return KeywordLexemeAction(DAILY); }
+"yearly"                            { return KeywordLexemeAction(YEARLY); }
+"bimonthly"                         { return KeywordLexemeAction(BIMONTHLY); }
+
+
+"ARS"                               { return KeywordLexemeAction(ARS); }
+"USD"                               { return KeywordLexemeAction(USD); }
+
 "-"									{ return ArithmeticOperatorLexemeAction(SUB); }
 "*"									{ return ArithmeticOperatorLexemeAction(MUL); }
 "/"									{ return ArithmeticOperatorLexemeAction(DIV); }
@@ -72,7 +115,22 @@ whitespace			[[:space:]]+
 "("									{ return ParenthesisLexemeAction(OPEN_PARENTHESIS); }
 ")"									{ return ParenthesisLexemeAction(CLOSE_PARENTHESIS); }
 
+"<="                                { return RelationalOperatorLexemeAction(LE); }
+">="                                { return RelationalOperatorLexemeAction(GE); }
+"!="                                { return RelationalOperatorLexemeAction(NE); }
+"<"                                 { return RelationalOperatorLexemeAction(LT); }
+">"                                 { return RelationalOperatorLexemeAction(GT); }
+"="                                 { return RelationalOperatorLexemeAction(EQ); }
+
+","                                 { return PunctuationLexemeAction(COMMA); }
+";"                                 { return PunctuationLexemeAction(SEMICOLON); }
+
+\"[[:digit:]]{2}-[[:digit:]]{2}-[[:digit:]]{4}\"    { return DateLexemeAction(); }
+[[:digit:]]+"."[[:digit:]]+                 { return FloatLexemeAction(); }
+[[:digit:]]+"%"                     { return PercentageLexemeAction(); }
 [[:digit:]]+						{ return IntegerLexemeAction(); }
+\"[^\"]*\"                          { return StringLexemeAction(); }
+[[:alpha:]]([[:alpha:]]|[[:digit:]])*   { return IdentifierLexemeAction(); }
 
 {whitespace}						{ return IgnoredLexemeAction(); }
 .									{ return UnknownLexemeAction(); }
