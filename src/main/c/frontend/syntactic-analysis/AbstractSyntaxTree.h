@@ -16,10 +16,17 @@ ModuleDestructor initializeAbstractSyntaxTreeModule();
 
 typedef enum ExpressionType ExpressionType;
 typedef enum FactorType FactorType;
+typedef enum ConstantType ConstantType;
+typedef enum CurrencyType CurrencyType;
+typedef enum PeriodicityType PeriodicityType;
+typedef enum PropertyType PropertyType;
+typedef enum DeclarationType DeclarationType;
 
 typedef struct Constant Constant;
 typedef struct Expression Expression;
 typedef struct Factor Factor;
+typedef struct Property Property;
+typedef struct Declaration Declaration;
 typedef struct Program Program;
 
 /**
@@ -39,8 +46,64 @@ enum FactorType {
 	EXPRESSION
 };
 
+enum ConstantType {
+	INTEGER_CONSTANT,
+	FLOAT_CONSTANT,
+	PERCENTAGE_CONSTANT,
+	STRING_CONSTANT,
+	DATE_CONSTANT,
+	IDENTIFIER_CONSTANT
+};
+
+enum CurrencyType {
+	CURRENCY_ARS,
+	CURRENCY_USD
+};
+
+enum PeriodicityType {
+	PERIODICITY_DAILY,
+	PERIODICITY_WEEKLY,
+	PERIODICITY_BIMONTHLY,
+	PERIODICITY_MONTHLY,
+	PERIODICITY_YEARLY
+};
+
+enum PropertyType {
+	PROPERTY_VALUE,
+	PROPERTY_CURRENCY,
+	PROPERTY_PERIODICITY,
+	PROPERTY_CATEGORY,
+	PROPERTY_FROM,
+	PROPERTY_UP,
+	PROPERTY_BALANCE,
+	PROPERTY_INTEREST,
+	PROPERTY_MIN_PAYMENT,
+	PROPERTY_AMOUNT,
+	PROPERTY_DEADLINE
+};
+
+enum DeclarationType {
+	DECLARATION_INCOME,
+	DECLARATION_EXPENSES,
+	DECLARATION_ASSET,
+	DECLARATION_DEBT,
+	DECLARATION_GOAL,
+	DECLARATION_DERIVATED_DATA
+};
+
+/**
+ * Constant keeps the original "value" field so Generator.c compiles
+ * unchanged, and adds "type" plus a union for the richer literal types
+ * introduced by the new language.
+ */
 struct Constant {
-	int value;
+	int value;				/* kept for Generator.c compatibility  */
+	ConstantType type;
+	union {
+		int intValue;
+		double floatValue;
+		char * stringValue;		/* STRING, DATE, IDENTIFIER */
+	};
 };
 
 struct Factor {
@@ -62,8 +125,37 @@ struct Expression {
 	ExpressionType type;
 };
 
+struct Property {
+	PropertyType type;
+	union {
+		Expression * valueExpr;			/* value       */
+		CurrencyType currencyValue;		/* currency    */
+		PeriodicityType periodicityValue;	/* periodicity */
+		char * stringValue;			/* category, from, deadline */
+		Expression * upExpr;			/* up          */
+		Expression * balanceExpr;		/* balance     */
+		Expression * interestExpr;		/* interest    */
+		Expression * minPaymentExpr;		/* minPayment  */
+		Expression * amountExpr;		/* amount      */
+	};
+	Property * next;
+};
+
+struct Declaration {
+	DeclarationType type;
+	char * name;
+	Property * properties;
+	Declaration * next;
+};
+
+/**
+ * Program keeps the original "expression" field so Generator.c compiles
+ * unchanged, and adds "declarations" for the new language structure.
+ * For valid programs, "declarations" is used; "expression" is NULL.
+ */
 struct Program {
-	Expression * expression;
+	Expression * expression;		/* kept for Generator.c compatibility */
+	Declaration * declarations;
 };
 
 /**
@@ -73,6 +165,8 @@ struct Program {
 void destroyConstant(Constant * constant);
 void destroyExpression(Expression * expression);
 void destroyFactor(Factor * factor);
+void destroyProperty(Property * property);
+void destroyDeclaration(Declaration * declaration);
 void destroyProgram(Program * program);
 
 #endif
