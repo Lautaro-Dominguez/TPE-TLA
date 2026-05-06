@@ -1,0 +1,7 @@
+derivatedData available = totalIncome as {
+    from "21-01-2026",
+    up "21-02-2026"
+} - totalExpenses as{
+    from "21-01-2026",
+    up "21-02-2026"
+};

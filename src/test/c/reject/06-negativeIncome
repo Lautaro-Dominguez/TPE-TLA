@@ -1,0 +1,5 @@
+income sueldo as{
+    value = -1500000.00,
+    currency = ARS,
+    periodicity = monthly
+};

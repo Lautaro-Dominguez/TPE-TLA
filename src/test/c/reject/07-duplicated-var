@@ -1,0 +1,11 @@
+income sueldo as{
+    value = 1500000.00,
+    currency = ARS,
+    periodicity = monthly
+};
+
+income sueldo as{
+    value = 2000.00,
+    currency = USD,
+    periodicity = bimonthly
+};
