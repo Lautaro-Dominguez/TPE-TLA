@@ -1,0 +1,5 @@
+totalExpenses as{
+    from "21-01-2026",
+    up "21-02-2026",
+    category = "services"
+};
