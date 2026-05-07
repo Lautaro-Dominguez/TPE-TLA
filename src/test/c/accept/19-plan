@@ -1,0 +1,10 @@
+debt deudaConEdenor as{
+    value = 100000.00,
+    currency = ARS,
+    category = "Facturas",
+    deadline = "20-01-2026",
+    interest = 3%,
+    minPayment = 50000.00
+};
+
+plan for deudaConEdenor in 6;

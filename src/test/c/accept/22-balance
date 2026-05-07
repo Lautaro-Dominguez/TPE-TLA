@@ -1,0 +1,4 @@
+balance balanceDe2025 as{
+    from "01-01-2025",
+    up "31-12-2025"
+};

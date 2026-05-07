@@ -1,0 +1,4 @@
+asset auto as{
+    value = 20000.00,
+    currency = USD
+};
