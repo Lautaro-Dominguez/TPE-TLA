@@ -61,8 +61,21 @@ void destroyFactor(Factor * factor) {
 			case EXPRESSION:
 				destroyExpression(factor->expression);
 				break;
+			case QUERY:
+				destroyQueryBlock(factor->query);
+				break;
 		}
 		free(factor);
+	}
+}
+
+void destroyQueryBlock(QueryBlock * query) {
+	logDebugging(_logger, "Executing destructor: %s", __FUNCTION__);
+	if (query != NULL) {
+		free(query->from);
+		free(query->up);
+		free(query->category);
+		free(query);
 	}
 }
 
@@ -96,7 +109,6 @@ void destroyProperty(Property * property) {
 				break;
 			case PROPERTY_CURRENCY:
 			case PROPERTY_PERIODICITY:
-				/* Enumerados: no hay heap memory que liberar */
 				break;
 		}
 		free(property);
@@ -108,8 +120,39 @@ void destroyDeclaration(Declaration * declaration) {
 	if (declaration != NULL) {
 		destroyDeclaration(declaration->next);
 		free(declaration->name);
-		destroyProperty(declaration->properties);
+		switch (declaration->type) {
+			case DECLARATION_DERIVATED_EXPR:
+				destroyExpression(declaration->derivedExpr);
+				break;
+			default:
+				destroyProperty(declaration->properties);
+				break;
+		}
 		free(declaration);
+	}
+}
+
+void destroyCommand(Command * command) {
+	logDebugging(_logger, "Executing destructor: %s", __FUNCTION__);
+	if (command != NULL) {
+		free(command->targetName);
+		free(command);
+	}
+}
+
+void destroyStatement(Statement * statement) {
+	logDebugging(_logger, "Executing destructor: %s", __FUNCTION__);
+	if (statement != NULL) {
+		destroyStatement(statement->next);
+		switch (statement->type) {
+			case STATEMENT_DECLARATION:
+				destroyDeclaration(statement->declaration);
+				break;
+			case STATEMENT_COMMAND:
+				destroyCommand(statement->command);
+				break;
+		}
+		free(statement);
 	}
 }
 
@@ -117,7 +160,7 @@ void destroyProgram(Program * program) {
 	logDebugging(_logger, "Executing destructor: %s", __FUNCTION__);
 	if (program != NULL) {
 		destroyExpression(program->expression);
-		destroyDeclaration(program->declarations);
+		destroyStatement(program->statements);
 		free(program);
 	}
 }

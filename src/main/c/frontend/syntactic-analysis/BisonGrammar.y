@@ -22,20 +22,21 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 
 %union {
 	/** Terminals. */
-
 	signed int integer;
 	double decimal;
 	char * string;
 	TokenLabel token;
 
 	/** Non-terminals. */
-
 	Constant * constant;
 	Expression * expression;
 	Factor * factor;
 	Program * program;
 	Property * property;
 	Declaration * declaration;
+	Command * command;
+	Statement * statement;
+	QueryBlock * queryBlock;
 
 	CurrencyType currencyType;
 	PeriodicityType periodicityType;
@@ -54,6 +55,9 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %destructor { destroyFactor($$); } <factor>
 %destructor { destroyProperty($$); } <property>
 %destructor { destroyDeclaration($$); } <declaration>
+%destructor { destroyCommand($$); } <command>
+%destructor { destroyStatement($$); } <statement>
+%destructor { destroyQueryBlock($$); } <queryBlock>
 %destructor { free($$); } <string>
 
 /** Terminals. */
@@ -71,6 +75,10 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 
 %token <token> OPEN_PARENTHESIS
 %token <token> CLOSE_PARENTHESIS
+%token <token> OPEN_BRACE
+%token <token> CLOSE_BRACE
+%token <token> OPEN_COMMENT
+%token <token> CLOSE_COMMENT
 
 %token <token> LT
 %token <token> GT
@@ -82,11 +90,7 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %token <token> COMMA
 %token <token> SEMICOLON
 
-%token <token> OPEN_BRACE
-%token <token> CLOSE_BRACE
-%token <token> OPEN_COMMENT
-%token <token> CLOSE_COMMENT
-
+/* Tipos de bloque */
 %token <token> INCOME
 %token <token> EXPENSES
 %token <token> ASSET
@@ -94,6 +98,17 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %token <token> GOAL
 %token <token> DERIVATED_DATA
 
+/* Consultas agregadas */
+%token <token> TOTAL_INCOME
+%token <token> TOTAL_EXPENSES
+%token <token> MAX_CATEGORY
+
+/* Comandos de acción */
+%token <token> EXCHANGE
+%token <token> CHANGE_PERIODICITY
+%token <token> EXPORT
+
+/* Propiedades */
 %token <token> AS
 %token <token> VALUE
 %token <token> CURRENCY
@@ -107,12 +122,14 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %token <token> AMOUNT
 %token <token> DEADLINE
 
+/* Periodicidades */
 %token <token> MONTHLY
 %token <token> WEEKLY
 %token <token> DAILY
 %token <token> YEARLY
 %token <token> BIMONTHLY
 
+/* Monedas */
 %token <token> ARS
 %token <token> USD
 
@@ -120,18 +137,23 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %token <token> UNKNOWN
 
 /** Non-terminals. */
-%type <program> program
-%type <declaration> declarationList declaration
-%type <property> propertyList property
-%type <currencyType> currencyValue
+%type <program>         program
+%type <statement>       statementList statement
+%type <declaration>     declaration
+%type <command>         command
+%type <queryBlock>      queryBlock totalIncomeQuery totalExpensesQuery
+%type <property>        propertyList property
+%type <string>          queryFrom queryUp queryCategory
+%type <currencyType>    currencyValue
 %type <periodicityType> periodicityValue
-%type <expression> expression
-%type <factor> factor
-%type <constant> constant
+%type <expression>      expression
+%type <factor>          factor
+%type <constant>        constant
 
 /**
  * Precedence and associativity.
  *
+ * @see https://en.cppreference.com/w/cpp/language/operator_precedence.html
  * @see https://www.gnu.org/software/bison/manual/html_node/Precedence.html
  */
 %left ADD SUB
@@ -141,32 +163,32 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 
 // IMPORTANT: To use λ in the following grammar, use the %empty symbol.
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * PROGRAMA — símbolo inicial
- * ═════════════════════════════════════════════════════════════════════════*/
+/* PROGRAMA — símbolo inicial */
 
-program: declarationList								{ $$ = DeclarationListProgramSemanticAction($1); }
-	| expression										{ $$ = ExpressionProgramSemanticAction($1); }
+program: statementList								{ $$ = StatementListProgramSemanticAction($1); }
+	| expression									{ $$ = ExpressionProgramSemanticAction($1); }
 	;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * LISTA DE DECLARACIONES
- * Recursiva a izquierda para evitar conflictos LALR.
- * ═════════════════════════════════════════════════════════════════════════*/
+/* LISTA DE SENTENCIAS */
 
-declarationList: declaration							{ $$ = $1; }
-	| declarationList declaration						{ $$ = AppendDeclarationSemanticAction($1, $2); }
+statementList: statement							{ $$ = $1; }
+	| statementList statement						{ $$ = AppendStatementSemanticAction($1, $2); }
 	;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * DECLARACIONES
+/* SENTENCIA
+ * Puede ser una declaración, un comando o una consulta standalone. 
+ */
+
+statement: declaration								{ $$ = DeclarationStatementSemanticAction($1); }
+	| command										{ $$ = CommandStatementSemanticAction($1); }
+	| queryBlock SEMICOLON							{ $$ = QueryStatementSemanticAction($1); }
+	;
+
+/* DECLARACIONES DE BLOQUE
  *
- * Sintaxis real:  <keyword> <IDENTIFIER> as { <propertyList> };
- *
- *   - El IDENTIFIER antes del "as" es el nombre/alias de la declaración.
- *   - No hay IDENTIFIER después del "as".
- *   - El bloque cierra con }; (CLOSE_BRACE SEMICOLON).
- * ═════════════════════════════════════════════════════════════════════════*/
+ * Sintaxis:  <keyword> <IDENTIFIER> as { <propertyList> };
+ *            derivatedData <IDENTIFIER> = <expression>;
+ */
 
 declaration: INCOME IDENTIFIER AS OPEN_BRACE propertyList CLOSE_BRACE SEMICOLON
 		{ $$ = IncomeDeclarationSemanticAction($2, $5); }
@@ -180,83 +202,125 @@ declaration: INCOME IDENTIFIER AS OPEN_BRACE propertyList CLOSE_BRACE SEMICOLON
 		{ $$ = GoalDeclarationSemanticAction($2, $5); }
 	| DERIVATED_DATA IDENTIFIER AS OPEN_BRACE propertyList CLOSE_BRACE SEMICOLON
 		{ $$ = DerivatedDataDeclarationSemanticAction($2, $5); }
+	| DERIVATED_DATA IDENTIFIER EQ expression SEMICOLON
+		{ $$ = DerivatedExprDeclarationSemanticAction($2, $4); }
 	;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * LISTA DE PROPIEDADES
+/* COMANDOS DE ACCIÓN
  *
- * Las propiedades se separan con COMMA.
- * La lista puede ser vacía (bloque sin propiedades).
- * La última propiedad NO lleva COMMA al final (trailing comma no permitido).
- * ═════════════════════════════════════════════════════════════════════════*/
+ * exchange <IDENTIFIER> <currency>;
+ * change-periodicity <IDENTIFIER> <periodicity>;
+ * export <IDENTIFIER>;
+ */
 
-propertyList: %empty									{ $$ = NULL; }
-	| property											{ $$ = $1; }
-	| propertyList COMMA property						{ $$ = AppendPropertySemanticAction($1, $3); }
+command: EXCHANGE IDENTIFIER currencyValue SEMICOLON
+		{ $$ = ExchangeCommandSemanticAction($2, $3); }
+	| CHANGE_PERIODICITY IDENTIFIER periodicityValue SEMICOLON
+		{ $$ = ChangePeriodicityCommandSemanticAction($2, $3); }
+	| EXPORT IDENTIFIER SEMICOLON
+		{ $$ = ExportCommandSemanticAction($2); }
 	;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * PROPIEDADES INDIVIDUALES
+/* CONSULTAS AGREGADAS  (pueden ser standalone o dentro de expresiones)
  *
- * Sintaxis real:  <keyword> = <valor>
- * ═════════════════════════════════════════════════════════════════════════*/
+ * totalIncome as { from <date>, up <date> }
+ * totalExpenses as { from <date>, up <date> }
+ * totalExpenses as { from <date>, up <date>, category = <string> }
+ * maxCategory
+ */
 
-property: VALUE EQ expression							{ $$ = ValuePropertySemanticAction($3); }
-	| CURRENCY EQ currencyValue							{ $$ = CurrencyPropertySemanticAction($3); }
-	| PERIODICITY EQ periodicityValue					{ $$ = PeriodicityPropertySemanticAction($3); }
-	| CATEGORY EQ STRING								{ $$ = CategoryPropertySemanticAction($3); }
-	| CATEGORY EQ IDENTIFIER							{ $$ = CategoryPropertySemanticAction($3); }
-	| FROM EQ DATE										{ $$ = FromPropertySemanticAction($3); }
-	| FROM EQ IDENTIFIER								{ $$ = FromPropertySemanticAction($3); }
-	| UP EQ expression									{ $$ = UpPropertySemanticAction($3); }
-	| BALANCE EQ expression								{ $$ = BalancePropertySemanticAction($3); }
-	| INTEREST EQ expression							{ $$ = InterestPropertySemanticAction($3); }
-	| MIN_PAYMENT EQ expression							{ $$ = MinPaymentPropertySemanticAction($3); }
-	| AMOUNT EQ expression								{ $$ = AmountPropertySemanticAction($3); }
-	| DEADLINE EQ DATE									{ $$ = DeadlinePropertySemanticAction($3); }
-	| DEADLINE EQ IDENTIFIER							{ $$ = DeadlinePropertySemanticAction($3); }
+queryBlock: totalIncomeQuery						{ $$ = $1; }
+	| totalExpensesQuery							{ $$ = $1; }
+	| MAX_CATEGORY									{ $$ = MaxCategoryQuerySemanticAction(); }
 	;
 
-/* ─── Monedas ───────────────────────────────────────────────────────────── */
-
-currencyValue: ARS										{ $$ = CURRENCY_ARS; }
-	| USD												{ $$ = CURRENCY_USD; }
+totalIncomeQuery: TOTAL_INCOME AS OPEN_BRACE queryFrom COMMA queryUp CLOSE_BRACE
+		{ $$ = TotalIncomeQuerySemanticAction($4, $6); }
 	;
 
-/* ─── Periodicidades ────────────────────────────────────────────────────── */
-
-periodicityValue: DAILY									{ $$ = PERIODICITY_DAILY; }
-	| WEEKLY											{ $$ = PERIODICITY_WEEKLY; }
-	| BIMONTHLY											{ $$ = PERIODICITY_BIMONTHLY; }
-	| MONTHLY											{ $$ = PERIODICITY_MONTHLY; }
-	| YEARLY											{ $$ = PERIODICITY_YEARLY; }
+totalExpensesQuery: TOTAL_EXPENSES AS OPEN_BRACE queryFrom COMMA queryUp CLOSE_BRACE
+		{ $$ = TotalExpensesQuerySemanticAction($4, $6, NULL); }
+	| TOTAL_EXPENSES AS OPEN_BRACE queryFrom COMMA queryUp COMMA queryCategory CLOSE_BRACE
+		{ $$ = TotalExpensesQuerySemanticAction($4, $6, $8); }
 	;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * EXPRESIONES ARITMÉTICAS
- * ═════════════════════════════════════════════════════════════════════════*/
+/* Componentes individuales de consulta */
 
-expression: expression[left] ADD expression[right]		{ $$ = ArithmeticExpressionSemanticAction($left, $right, ADDITION); }
-	| expression[left] DIV expression[right]			{ $$ = ArithmeticExpressionSemanticAction($left, $right, DIVISION); }
-	| expression[left] MUL expression[right]			{ $$ = ArithmeticExpressionSemanticAction($left, $right, MULTIPLICATION); }
-	| expression[left] SUB expression[right]			{ $$ = ArithmeticExpressionSemanticAction($left, $right, SUBTRACTION); }
-	| factor											{ $$ = FactorExpressionSemanticAction($1); }
+queryFrom: FROM DATE								{ $$ = $2; }
+	| FROM STRING									{ $$ = $2; }
+	;
+
+queryUp: UP DATE									{ $$ = $2; }
+	| UP STRING										{ $$ = $2; }
+	;
+
+queryCategory: CATEGORY EQ STRING					{ $$ = $3; }
+	| CATEGORY EQ IDENTIFIER						{ $$ = $3; }
+	;
+
+/* LISTA DE PROPIEDADES DE BLOQUE */
+
+propertyList: %empty								{ $$ = NULL; }
+	| property										{ $$ = $1; }
+	| propertyList COMMA property					{ $$ = AppendPropertySemanticAction($1, $3); }
+	;
+
+property: VALUE EQ expression						{ $$ = ValuePropertySemanticAction($3); }
+	| CURRENCY EQ currencyValue						{ $$ = CurrencyPropertySemanticAction($3); }
+	| PERIODICITY EQ periodicityValue				{ $$ = PeriodicityPropertySemanticAction($3); }
+	| CATEGORY EQ STRING							{ $$ = CategoryPropertySemanticAction($3); }
+	| CATEGORY EQ IDENTIFIER						{ $$ = CategoryPropertySemanticAction($3); }
+	| FROM EQ DATE									{ $$ = FromPropertySemanticAction($3); }
+	| FROM EQ IDENTIFIER							{ $$ = FromPropertySemanticAction($3); }
+	| UP EQ expression								{ $$ = UpPropertySemanticAction($3); }
+	| BALANCE EQ expression							{ $$ = BalancePropertySemanticAction($3); }
+	| INTEREST EQ expression						{ $$ = InterestPropertySemanticAction($3); }
+	| MIN_PAYMENT EQ expression						{ $$ = MinPaymentPropertySemanticAction($3); }
+	| AMOUNT EQ expression							{ $$ = AmountPropertySemanticAction($3); }
+	| DEADLINE EQ DATE								{ $$ = DeadlinePropertySemanticAction($3); }
+	| DEADLINE EQ IDENTIFIER						{ $$ = DeadlinePropertySemanticAction($3); }
+	;
+
+/* Monedas */
+
+currencyValue: ARS									{ $$ = CURRENCY_ARS; }
+	| USD											{ $$ = CURRENCY_USD; }
+	;
+
+/* Periodicidades */
+
+periodicityValue: DAILY								{ $$ = PERIODICITY_DAILY; }
+	| WEEKLY										{ $$ = PERIODICITY_WEEKLY; }
+	| BIMONTHLY										{ $$ = PERIODICITY_BIMONTHLY; }
+	| MONTHLY										{ $$ = PERIODICITY_MONTHLY; }
+	| YEARLY										{ $$ = PERIODICITY_YEARLY; }
+	;
+
+/* EXPRESIONES ARITMÉTICAS
+ * Las queries pueden participar como factores dentro de expresiones:
+ *   derivatedData available = totalIncome as {...} - totalExpenses as {...};
+ */
+
+expression: expression[left] ADD expression[right]	{ $$ = ArithmeticExpressionSemanticAction($left, $right, ADDITION); }
+	| expression[left] DIV expression[right]		{ $$ = ArithmeticExpressionSemanticAction($left, $right, DIVISION); }
+	| expression[left] MUL expression[right]		{ $$ = ArithmeticExpressionSemanticAction($left, $right, MULTIPLICATION); }
+	| expression[left] SUB expression[right]		{ $$ = ArithmeticExpressionSemanticAction($left, $right, SUBTRACTION); }
+	| factor										{ $$ = FactorExpressionSemanticAction($1); }
 	;
 
 factor: OPEN_PARENTHESIS expression CLOSE_PARENTHESIS	{ $$ = ExpressionFactorSemanticAction($2); }
-	| constant											{ $$ = ConstantFactorSemanticAction($1); }
+	| queryBlock									{ $$ = QueryFactorSemanticAction($1); }
+	| constant										{ $$ = ConstantFactorSemanticAction($1); }
 	;
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * CONSTANTES / LITERALES
- * ═════════════════════════════════════════════════════════════════════════*/
+/* CONSTANTES / LITERALES */
 
-constant: INTEGER										{ $$ = IntegerConstantSemanticAction($1); }
-	| FLOAT												{ $$ = FloatConstantSemanticAction($1); }
-	| PERCENTAGE										{ $$ = PercentageConstantSemanticAction($1); }
-	| STRING											{ $$ = StringConstantSemanticAction($1); }
-	| DATE												{ $$ = DateConstantSemanticAction($1); }
-	| IDENTIFIER										{ $$ = IdentifierConstantSemanticAction($1); }
+constant: INTEGER									{ $$ = IntegerConstantSemanticAction($1); }
+	| FLOAT											{ $$ = FloatConstantSemanticAction($1); }
+	| PERCENTAGE									{ $$ = PercentageConstantSemanticAction($1); }
+	| STRING										{ $$ = StringConstantSemanticAction($1); }
+	| DATE											{ $$ = DateConstantSemanticAction($1); }
+	| IDENTIFIER									{ $$ = IdentifierConstantSemanticAction($1); }
 	;
 
 %%

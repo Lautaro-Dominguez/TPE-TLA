@@ -16,7 +16,7 @@ ModuleDestructor initializeBisonActionsModule(CompilerState * compilerState);
  * Bison semantic actions.
  */
 
-/* ── Constantes ─────────────────────────────────────────────────────────── */
+/* Constants */
 
 Constant * IntegerConstantSemanticAction(const int value);
 Constant * FloatConstantSemanticAction(const double value);
@@ -25,17 +25,24 @@ Constant * StringConstantSemanticAction(char * value);
 Constant * DateConstantSemanticAction(char * value);
 Constant * IdentifierConstantSemanticAction(char * value);
 
-/* ── Factores ───────────────────────────────────────────────────────────── */
+/* Factors */
 
 Factor * ConstantFactorSemanticAction(Constant * constant);
 Factor * ExpressionFactorSemanticAction(Expression * expression);
+Factor * QueryFactorSemanticAction(QueryBlock * query);
 
-/* ── Expresiones ────────────────────────────────────────────────────────── */
+/* Expressions */
 
 Expression * FactorExpressionSemanticAction(Factor * factor);
 Expression * ArithmeticExpressionSemanticAction(Expression * leftExpression, Expression * rightExpression, ExpressionType type);
 
-/* ── Propiedades ────────────────────────────────────────────────────────── */
+/* QueryBlock */
+
+QueryBlock * TotalIncomeQuerySemanticAction(char * from, char * up);
+QueryBlock * TotalExpensesQuerySemanticAction(char * from, char * up, char * category);
+QueryBlock * MaxCategoryQuerySemanticAction();
+
+/* Properties */
 
 Property * ValuePropertySemanticAction(Expression * expression);
 Property * CurrencyPropertySemanticAction(CurrencyType currency);
@@ -50,7 +57,7 @@ Property * AmountPropertySemanticAction(Expression * expression);
 Property * DeadlinePropertySemanticAction(char * value);
 Property * AppendPropertySemanticAction(Property * list, Property * property);
 
-/* ── Declaraciones ──────────────────────────────────────────────────────── */
+/* Declarations */
 
 Declaration * IncomeDeclarationSemanticAction(char * name, Property * properties);
 Declaration * ExpensesDeclarationSemanticAction(char * name, Property * properties);
@@ -58,11 +65,24 @@ Declaration * AssetDeclarationSemanticAction(char * name, Property * properties)
 Declaration * DebtDeclarationSemanticAction(char * name, Property * properties);
 Declaration * GoalDeclarationSemanticAction(char * name, Property * properties);
 Declaration * DerivatedDataDeclarationSemanticAction(char * name, Property * properties);
-Declaration * AppendDeclarationSemanticAction(Declaration * list, Declaration * declaration);
+Declaration * DerivatedExprDeclarationSemanticAction(char * name, Expression * expression);
 
-/* ── Programa ───────────────────────────────────────────────────────────── */
+/* Commands */
+
+Command * ExchangeCommandSemanticAction(char * name, CurrencyType currency);
+Command * ChangePeriodicityCommandSemanticAction(char * name, PeriodicityType periodicity);
+Command * ExportCommandSemanticAction(char * name);
+
+/* Statements */
+
+Statement * DeclarationStatementSemanticAction(Declaration * declaration);
+Statement * CommandStatementSemanticAction(Command * command);
+Statement * QueryStatementSemanticAction(QueryBlock * query);
+Statement * AppendStatementSemanticAction(Statement * list, Statement * statement);
+
+/* Program */
 
 Program * ExpressionProgramSemanticAction(Expression * expression);
-Program * DeclarationListProgramSemanticAction(Declaration * declarations);
+Program * StatementListProgramSemanticAction(Statement * statements);
 
 #endif

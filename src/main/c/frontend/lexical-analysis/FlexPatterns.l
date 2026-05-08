@@ -15,20 +15,17 @@
  */
 
 extern CompilationStatus ArithmeticOperatorLexemeAction(TokenLabel label);
-extern CompilationStatus EnterImportExpressionLexemeAction(FlexContext context);
 extern CompilationStatus EnterMultilineCommentLexemeAction(FlexContext context);
 extern CompilationStatus EOFLexemeAction();
 extern CompilationStatus IgnoredLexemeAction();
 extern CompilationStatus IntegerLexemeAction();
-extern CompilationStatus LeaveImportExpressionLexemeAction();
 extern CompilationStatus LeaveMultilineCommentLexemeAction();
 extern CompilationStatus ParenthesisLexemeAction(TokenLabel label);
-extern CompilationStatus SubexpressionLexemeAction();
 extern CompilationStatus UnknownLexemeAction();
 extern CompilationStatus KeywordLexemeAction(TokenLabel label);
 extern CompilationStatus RelationalOperatorLexemeAction(TokenLabel label);
 extern CompilationStatus PunctuationLexemeAction(TokenLabel label);
-extern CompilationStatus FloatLexemeAction(); 
+extern CompilationStatus FloatLexemeAction();
 extern CompilationStatus PercentageLexemeAction();
 extern CompilationStatus StringLexemeAction();
 extern CompilationStatus DateLexemeAction();
@@ -41,7 +38,6 @@ extern CompilationStatus IdentifierLexemeAction();
  *
  * @see https://westes.github.io/flex/manual/Start-Conditions.html
  */
-%x IMPORT_EXPRESSION
 %x MULTILINE_COMMENT
 
 /**
@@ -79,6 +75,14 @@ whitespace			[[:space:]]+
 "debt"                              { return KeywordLexemeAction(DEBT); }
 "goal"                              { return KeywordLexemeAction(GOAL); }
 "derivatedData"                     { return KeywordLexemeAction(DERIVATED_DATA); }
+
+"totalIncome"                       { return KeywordLexemeAction(TOTAL_INCOME); }
+"totalExpenses"                     { return KeywordLexemeAction(TOTAL_EXPENSES); }
+"maxCategory"                       { return KeywordLexemeAction(MAX_CATEGORY); }
+
+"exchange"                          { return KeywordLexemeAction(EXCHANGE); }
+"change-periodicity"                { return KeywordLexemeAction(CHANGE_PERIODICITY); }
+"export"                            { return KeywordLexemeAction(EXPORT); }
 
 
 "as"                                { return KeywordLexemeAction(AS); }

@@ -29,13 +29,13 @@ static void _logSyntacticAnalyzerAction(const char * functionName) {
 
 /* PUBLIC FUNCTIONS */
 
-/* ── Constantes ─────────────────────────────────────────────────────────── */
+/* Constants */
 
 Constant * IntegerConstantSemanticAction(const int value) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
 	Constant * constant = calloc(1, sizeof(Constant));
 	constant->type = INTEGER_CONSTANT;
-	constant->value = value;		/* compatibilidad con Generator.c */
+	constant->value = value;
 	constant->intValue = value;
 	return constant;
 }
@@ -80,7 +80,7 @@ Constant * IdentifierConstantSemanticAction(char * value) {
 	return constant;
 }
 
-/* ── Factores ───────────────────────────────────────────────────────────── */
+/* Factors */
 
 Factor * ConstantFactorSemanticAction(Constant * constant) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
@@ -98,7 +98,15 @@ Factor * ExpressionFactorSemanticAction(Expression * expression) {
 	return factor;
 }
 
-/* ── Expresiones ────────────────────────────────────────────────────────── */
+Factor * QueryFactorSemanticAction(QueryBlock * query) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Factor * factor = calloc(1, sizeof(Factor));
+	factor->query = query;
+	factor->type = QUERY;
+	return factor;
+}
+
+/* Expressions */
 
 Expression * FactorExpressionSemanticAction(Factor * factor) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
@@ -117,7 +125,39 @@ Expression * ArithmeticExpressionSemanticAction(Expression * leftExpression, Exp
 	return expression;
 }
 
-/* ── Propiedades ────────────────────────────────────────────────────────── */
+/* QueryBlock */
+
+QueryBlock * TotalIncomeQuerySemanticAction(char * from, char * up) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	QueryBlock * query = calloc(1, sizeof(QueryBlock));
+	query->type = QUERY_TOTAL_INCOME;
+	query->from = from;
+	query->up = up;
+	query->category = NULL;
+	return query;
+}
+
+QueryBlock * TotalExpensesQuerySemanticAction(char * from, char * up, char * category) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	QueryBlock * query = calloc(1, sizeof(QueryBlock));
+	query->type = QUERY_TOTAL_EXPENSES;
+	query->from = from;
+	query->up = up;
+	query->category = category;
+	return query;
+}
+
+QueryBlock * MaxCategoryQuerySemanticAction() {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	QueryBlock * query = calloc(1, sizeof(QueryBlock));
+	query->type = QUERY_MAX_CATEGORY;
+	query->from = NULL;
+	query->up = NULL;
+	query->category = NULL;
+	return query;
+}
+
+/* Properties */
 
 Property * ValuePropertySemanticAction(Expression * expression) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
@@ -231,7 +271,7 @@ Property * AppendPropertySemanticAction(Property * list, Property * property) {
 	return list;
 }
 
-/* ── Declaraciones ──────────────────────────────────────────────────────── */
+/* Declarations */
 
 static Declaration * _makeDeclaration(DeclarationType type, char * name, Property * properties) {
 	Declaration * declaration = calloc(1, sizeof(Declaration));
@@ -272,35 +312,113 @@ Declaration * DerivatedDataDeclarationSemanticAction(char * name, Property * pro
 	return _makeDeclaration(DECLARATION_DERIVATED_DATA, name, properties);
 }
 
-Declaration * AppendDeclarationSemanticAction(Declaration * list, Declaration * declaration) {
+Declaration * DerivatedExprDeclarationSemanticAction(char * name, Expression * expression) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Declaration * declaration = calloc(1, sizeof(Declaration));
+	declaration->type = DECLARATION_DERIVATED_EXPR;
+	declaration->name = name;
+	declaration->derivedExpr = expression;
+	declaration->next = NULL;
+	return declaration;
+}
+
+/* Commands */
+
+Command * ExchangeCommandSemanticAction(char * name, CurrencyType currency) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_EXCHANGE;
+	command->targetName = name;
+	command->newCurrency = currency;
+	return command;
+}
+
+Command * ChangePeriodicityCommandSemanticAction(char * name, PeriodicityType periodicity) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_CHANGE_PERIODICITY;
+	command->targetName = name;
+	command->newPeriodicity = periodicity;
+	return command;
+}
+
+Command * ExportCommandSemanticAction(char * name) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_EXPORT;
+	command->targetName = name;
+	return command;
+}
+
+/* Statements */
+
+Statement * DeclarationStatementSemanticAction(Declaration * declaration) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Statement * statement = calloc(1, sizeof(Statement));
+	statement->type = STATEMENT_DECLARATION;
+	statement->declaration = declaration;
+	statement->next = NULL;
+	return statement;
+}
+
+Statement * CommandStatementSemanticAction(Command * command) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Statement * statement = calloc(1, sizeof(Statement));
+	statement->type = STATEMENT_COMMAND;
+	statement->command = command;
+	statement->next = NULL;
+	return statement;
+}
+
+Statement * QueryStatementSemanticAction(QueryBlock * query) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = (query->type == QUERY_MAX_CATEGORY)
+		? COMMAND_EXPORT
+		: COMMAND_EXPORT;
+	command->targetName = NULL;
+	free(command);
+
+	Factor * factor = QueryFactorSemanticAction(query);
+	Expression * expression = FactorExpressionSemanticAction(factor);
+	Declaration * declaration = DerivatedExprDeclarationSemanticAction(NULL, expression);
+
+	Statement * statement = calloc(1, sizeof(Statement));
+	statement->type = STATEMENT_DECLARATION;
+	statement->declaration = declaration;
+	statement->next = NULL;
+	return statement;
+}
+
+Statement * AppendStatementSemanticAction(Statement * list, Statement * statement) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
 	if (list == NULL) {
-		return declaration;
+		return statement;
 	}
-	Declaration * tail = list;
+	Statement * tail = list;
 	while (tail->next != NULL) {
 		tail = tail->next;
 	}
-	tail->next = declaration;
+	tail->next = statement;
 	return list;
 }
 
-/* ── Programa ───────────────────────────────────────────────────────────── */
+/* Program */
 
 Program * ExpressionProgramSemanticAction(Expression * expression) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
 	Program * program = calloc(1, sizeof(Program));
 	program->expression = expression;
-	program->declarations = NULL;
+	program->statements = NULL;
 	_compilerState->abstractSyntaxtTree = program;
 	return program;
 }
 
-Program * DeclarationListProgramSemanticAction(Declaration * declarations) {
+Program * StatementListProgramSemanticAction(Statement * statements) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
 	Program * program = calloc(1, sizeof(Program));
-	program->expression = NULL;		/* compatibilidad con Generator.c */
-	program->declarations = declarations;
-	_compilerState->abstractSyntaxtTree = program;	/* el EntryPoint libera desde aquí */
+	program->expression = NULL;
+	program->statements = statements;
+	_compilerState->abstractSyntaxtTree = program;
 	return program;
 }
