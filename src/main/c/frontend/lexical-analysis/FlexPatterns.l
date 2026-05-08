@@ -79,10 +79,21 @@ whitespace			[[:space:]]+
 "totalIncome"                       { return KeywordLexemeAction(TOTAL_INCOME); }
 "totalExpenses"                     { return KeywordLexemeAction(TOTAL_EXPENSES); }
 "maxCategory"                       { return KeywordLexemeAction(MAX_CATEGORY); }
+"minCategory"                       { return KeywordLexemeAction(MIN_CATEGORY); }
+
+"circleGraphic"                     { return KeywordLexemeAction(CIRCLE_GRAPHIC); }
+"probability"                       { return KeywordLexemeAction(PROBABILITY); }
+"plan"                              { return KeywordLexemeAction(PLAN); }
+"balance"                           { return KeywordLexemeAction(BALANCE); }
 
 "exchange"                          { return KeywordLexemeAction(EXCHANGE); }
 "change-periodicity"                { return KeywordLexemeAction(CHANGE_PERIODICITY); }
 "export"                            { return KeywordLexemeAction(EXPORT); }
+
+"of"                                { return KeywordLexemeAction(OF); }
+"by"                                { return KeywordLexemeAction(BY); }
+"for"                               { return KeywordLexemeAction(FOR); }
+"in"                                { return KeywordLexemeAction(IN); }
 
 
 "as"                                { return KeywordLexemeAction(AS); }

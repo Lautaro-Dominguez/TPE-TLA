@@ -40,6 +40,7 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 
 	CurrencyType currencyType;
 	PeriodicityType periodicityType;
+	RelationalOpType relationalOpType;
 }
 
 /**
@@ -102,11 +103,21 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %token <token> TOTAL_INCOME
 %token <token> TOTAL_EXPENSES
 %token <token> MAX_CATEGORY
+%token <token> MIN_CATEGORY
 
 /* Comandos de acción */
 %token <token> EXCHANGE
 %token <token> CHANGE_PERIODICITY
 %token <token> EXPORT
+%token <token> CIRCLE_GRAPHIC
+%token <token> PROBABILITY
+%token <token> PLAN
+
+/* Keywords auxiliares de comandos */
+%token <token> OF
+%token <token> BY
+%token <token> FOR
+%token <token> IN
 
 /* Propiedades */
 %token <token> AS
@@ -144,6 +155,7 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 %type <queryBlock>      queryBlock totalIncomeQuery totalExpensesQuery
 %type <property>        propertyList property
 %type <string>          queryFrom queryUp queryCategory
+%type <relationalOpType> relationalOp
 %type <currencyType>    currencyValue
 %type <periodicityType> periodicityValue
 %type <expression>      expression
@@ -153,7 +165,6 @@ void yyerror(const YYLTYPE * location, const char * message) {}
 /**
  * Precedence and associativity.
  *
- * @see https://en.cppreference.com/w/cpp/language/operator_precedence.html
  * @see https://www.gnu.org/software/bison/manual/html_node/Precedence.html
  */
 %left ADD SUB
@@ -204,6 +215,8 @@ declaration: INCOME IDENTIFIER AS OPEN_BRACE propertyList CLOSE_BRACE SEMICOLON
 		{ $$ = DerivatedDataDeclarationSemanticAction($2, $5); }
 	| DERIVATED_DATA IDENTIFIER EQ expression SEMICOLON
 		{ $$ = DerivatedExprDeclarationSemanticAction($2, $4); }
+	| BALANCE IDENTIFIER AS OPEN_BRACE queryFrom COMMA queryUp CLOSE_BRACE SEMICOLON
+		{ $$ = BalanceDeclarationSemanticAction($2, $5, $7); }
 	;
 
 /* COMANDOS DE ACCIÓN
@@ -219,6 +232,16 @@ command: EXCHANGE IDENTIFIER currencyValue SEMICOLON
 		{ $$ = ChangePeriodicityCommandSemanticAction($2, $3); }
 	| EXPORT IDENTIFIER SEMICOLON
 		{ $$ = ExportCommandSemanticAction($2); }
+	| CIRCLE_GRAPHIC TOTAL_EXPENSES BY CATEGORY SEMICOLON
+		{ $$ = CircleGraphicByCategoryCommandSemanticAction(NULL); }
+	| CIRCLE_GRAPHIC TOTAL_EXPENSES SEMICOLON
+		{ $$ = CircleGraphicCommandSemanticAction(NULL); }
+	| PROBABILITY OF queryBlock relationalOp FLOAT SEMICOLON
+		{ $$ = ProbabilityCommandSemanticAction($3, $4, $5); }
+	| PROBABILITY OF queryBlock relationalOp INTEGER SEMICOLON
+		{ $$ = ProbabilityCommandSemanticAction($3, $4, (double)$5); }
+	| PLAN FOR IDENTIFIER IN INTEGER SEMICOLON
+		{ $$ = PlanCommandSemanticAction($3, $5); }
 	;
 
 /* CONSULTAS AGREGADAS  (pueden ser standalone o dentro de expresiones)
@@ -232,6 +255,17 @@ command: EXCHANGE IDENTIFIER currencyValue SEMICOLON
 queryBlock: totalIncomeQuery						{ $$ = $1; }
 	| totalExpensesQuery							{ $$ = $1; }
 	| MAX_CATEGORY									{ $$ = MaxCategoryQuerySemanticAction(); }
+	| MIN_CATEGORY									{ $$ = MinCategoryQuerySemanticAction(); }
+	;
+
+/* Operador relacional genérico */
+
+relationalOp: LT									{ $$ = RELOP_LT; }
+	| GT											{ $$ = RELOP_GT; }
+	| EQ											{ $$ = RELOP_EQ; }
+	| NE											{ $$ = RELOP_NE; }
+	| LE											{ $$ = RELOP_LE; }
+	| GE											{ $$ = RELOP_GE; }
 	;
 
 totalIncomeQuery: TOTAL_INCOME AS OPEN_BRACE queryFrom COMMA queryUp CLOSE_BRACE

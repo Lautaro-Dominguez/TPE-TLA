@@ -9,9 +9,7 @@
 ModuleDestructor initializeAbstractSyntaxTreeModule();
 
 /**
- * This type definitions allows self-referencing types (e.g., an expression
- * that is made of another expressions, such as talking about you in 3rd
- * person, but without the madness).
+ * Forward declarations for self-referencing types.
  */
 
 typedef enum ExpressionType ExpressionType;
@@ -52,7 +50,7 @@ enum ExpressionType {
 enum FactorType {
 	CONSTANT,
 	EXPRESSION,
-	QUERY		
+	QUERY
 };
 
 /* Constants */
@@ -106,15 +104,28 @@ enum DeclarationType {
 	DECLARATION_DEBT,
 	DECLARATION_GOAL,
 	DECLARATION_DERIVATED_DATA,
-	DECLARATION_DERIVATED_EXPR	
+	DECLARATION_DERIVATED_EXPR,
+	DECLARATION_BALANCE
 };
 
-/* Aggregate query types */
+/* Relational operators */
+
+enum RelationalOpType {
+	RELOP_LT,
+	RELOP_GT,
+	RELOP_EQ,
+	RELOP_NE,
+	RELOP_LE,
+	RELOP_GE
+};
+
+typedef enum RelationalOpType RelationalOpType;
 
 enum QueryType {
 	QUERY_TOTAL_INCOME,
 	QUERY_TOTAL_EXPENSES,
-	QUERY_MAX_CATEGORY
+	QUERY_MAX_CATEGORY,
+	QUERY_MIN_CATEGORY
 };
 
 /* Action command types */
@@ -122,7 +133,11 @@ enum QueryType {
 enum CommandType {
 	COMMAND_EXCHANGE,
 	COMMAND_CHANGE_PERIODICITY,
-	COMMAND_EXPORT
+	COMMAND_EXPORT,
+	COMMAND_CIRCLE_GRAPHIC,
+	COMMAND_CIRCLE_GRAPHIC_BY_CATEGORY,
+	COMMAND_PROBABILITY,
+	COMMAND_PLAN
 };
 
 /* Statement type (declaration or command) */
@@ -148,7 +163,7 @@ struct Factor {
 	union {
 		Constant * constant;
 		Expression * expression;
-		QueryBlock * query;		
+		QueryBlock * query;
 	};
 	FactorType type;
 };
@@ -199,7 +214,7 @@ struct Declaration {
 	DeclarationType type;
 	char * name;
 	union {
-		Property * properties;		      
+		Property * properties;
 		struct {
 			Expression * derivedExpr;
 		};
@@ -208,15 +223,22 @@ struct Declaration {
 };
 
 /**
- * Command: exchange / change-periodicity / export / consultas standalone.
+ * Command: exchange / change-periodicity / export / circleGraphic / probability / plan.
  */
 struct Command {
 	CommandType type;
-	char * targetName;		
+	char * targetName;			
 	union {
-		CurrencyType newCurrency;		            
+		CurrencyType newCurrency;		
 		PeriodicityType newPeriodicity;		
+		struct {
+			QueryBlock * query;		
+			RelationalOpType relationalOp;	
+			double threshold;		
+		};
+		int installments;			
 	};
+	
 };
 
 /**
@@ -236,7 +258,7 @@ struct Statement {
  * Program: raíz del AST.
  */
 struct Program {
-	Expression * expression;	
+	Expression * expression;
 	Statement * statements;
 };
 

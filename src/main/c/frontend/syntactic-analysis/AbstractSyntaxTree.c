@@ -4,7 +4,6 @@
 
 static Logger * _logger = NULL;
 
-/** Shutdown module's internal state. */
 void _shutdownAbstractSyntaxTreeModule() {
 	if (_logger != NULL) {
 		logDebugging(_logger, "Destroying module: AbstractSyntaxTree...");
@@ -136,6 +135,9 @@ void destroyCommand(Command * command) {
 	logDebugging(_logger, "Executing destructor: %s", __FUNCTION__);
 	if (command != NULL) {
 		free(command->targetName);
+		if (command->type == COMMAND_PROBABILITY) {
+			destroyQueryBlock(command->query);
+		}
 		free(command);
 	}
 }

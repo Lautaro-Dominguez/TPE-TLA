@@ -5,7 +5,6 @@
 static CompilerState * _compilerState = NULL;
 static Logger * _logger = NULL;
 
-/** Shutdown module's internal state. */
 void _shutdownBisonActionsModule() {
 	if (_logger != NULL) {
 		logDebugging(_logger, "Destroying module: BisonActions...");
@@ -151,6 +150,16 @@ QueryBlock * MaxCategoryQuerySemanticAction() {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
 	QueryBlock * query = calloc(1, sizeof(QueryBlock));
 	query->type = QUERY_MAX_CATEGORY;
+	query->from = NULL;
+	query->up = NULL;
+	query->category = NULL;
+	return query;
+}
+
+QueryBlock * MinCategoryQuerySemanticAction() {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	QueryBlock * query = calloc(1, sizeof(QueryBlock));
+	query->type = QUERY_MIN_CATEGORY;
 	query->from = NULL;
 	query->up = NULL;
 	query->category = NULL;
@@ -322,6 +331,23 @@ Declaration * DerivatedExprDeclarationSemanticAction(char * name, Expression * e
 	return declaration;
 }
 
+Declaration * BalanceDeclarationSemanticAction(char * name, char * from, char * up) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Declaration * declaration = calloc(1, sizeof(Declaration));
+	declaration->type = DECLARATION_BALANCE;
+	declaration->name = name;
+	/* Reutilizamos properties para transportar from/up como Property nodes */
+	Property * fromProp = FromPropertySemanticAction(from);
+	Property * upProp   = UpPropertySemanticAction(
+		FactorExpressionSemanticAction(
+			ConstantFactorSemanticAction(
+				DateConstantSemanticAction(up))));
+	fromProp->next = upProp;
+	declaration->properties = fromProp;
+	declaration->next = NULL;
+	return declaration;
+}
+
 /* Commands */
 
 Command * ExchangeCommandSemanticAction(char * name, CurrencyType currency) {
@@ -350,6 +376,42 @@ Command * ExportCommandSemanticAction(char * name) {
 	return command;
 }
 
+Command * CircleGraphicCommandSemanticAction(char * target) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_CIRCLE_GRAPHIC;
+	command->targetName = target;
+	return command;
+}
+
+Command * CircleGraphicByCategoryCommandSemanticAction(char * target) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_CIRCLE_GRAPHIC_BY_CATEGORY;
+	command->targetName = target;
+	return command;
+}
+
+Command * ProbabilityCommandSemanticAction(QueryBlock * query, RelationalOpType op, double threshold) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_PROBABILITY;
+	command->targetName = NULL;
+	command->query = query;
+	command->relationalOp = op;
+	command->threshold = threshold;
+	return command;
+}
+
+Command * PlanCommandSemanticAction(char * name, int installments) {
+	_logSyntacticAnalyzerAction(__FUNCTION__);
+	Command * command = calloc(1, sizeof(Command));
+	command->type = COMMAND_PLAN;
+	command->targetName = name;
+	command->installments = installments;
+	return command;
+}
+
 /* Statements */
 
 Statement * DeclarationStatementSemanticAction(Declaration * declaration) {
@@ -374,7 +436,7 @@ Statement * QueryStatementSemanticAction(QueryBlock * query) {
 	_logSyntacticAnalyzerAction(__FUNCTION__);
 	Command * command = calloc(1, sizeof(Command));
 	command->type = (query->type == QUERY_MAX_CATEGORY)
-		? COMMAND_EXPORT
+		? COMMAND_EXPORT		
 		: COMMAND_EXPORT;
 	command->targetName = NULL;
 	free(command);

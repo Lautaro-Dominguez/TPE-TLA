@@ -41,6 +41,7 @@ Expression * ArithmeticExpressionSemanticAction(Expression * leftExpression, Exp
 QueryBlock * TotalIncomeQuerySemanticAction(char * from, char * up);
 QueryBlock * TotalExpensesQuerySemanticAction(char * from, char * up, char * category);
 QueryBlock * MaxCategoryQuerySemanticAction();
+QueryBlock * MinCategoryQuerySemanticAction();
 
 /* Properties */
 
@@ -66,12 +67,17 @@ Declaration * DebtDeclarationSemanticAction(char * name, Property * properties);
 Declaration * GoalDeclarationSemanticAction(char * name, Property * properties);
 Declaration * DerivatedDataDeclarationSemanticAction(char * name, Property * properties);
 Declaration * DerivatedExprDeclarationSemanticAction(char * name, Expression * expression);
+Declaration * BalanceDeclarationSemanticAction(char * name, char * from, char * up);
 
 /* Commands */
 
 Command * ExchangeCommandSemanticAction(char * name, CurrencyType currency);
 Command * ChangePeriodicityCommandSemanticAction(char * name, PeriodicityType periodicity);
 Command * ExportCommandSemanticAction(char * name);
+Command * CircleGraphicCommandSemanticAction(char * target);
+Command * CircleGraphicByCategoryCommandSemanticAction(char * target);
+Command * ProbabilityCommandSemanticAction(QueryBlock * query, RelationalOpType op, double threshold);
+Command * PlanCommandSemanticAction(char * name, int installments);
 
 /* Statements */
 
