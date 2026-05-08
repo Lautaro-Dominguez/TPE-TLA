@@ -1,0 +1,5 @@
+goal plataParaNuevaCompu as{
+    value = 200000.00,
+    currency = ARS,
+    deadline = "21-12-2027"
+};
