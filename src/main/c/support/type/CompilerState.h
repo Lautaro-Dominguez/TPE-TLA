@@ -1,5 +1,6 @@
 #ifndef COMPILER_STATE_HEADER
 #define COMPILER_STATE_HEADER
+#include "SymblolTableEntry.h"
 
 /**
  * The global state of the compiler. Should transport every data structure
@@ -17,6 +18,9 @@ typedef struct {
 	 * will be your fault.
 	 */
 	signed int value;
+
+	//First entry of the symbol table.
+	SymbolTableEntry * symbolTable;
 
 	// TODO: Add a symbol table.
 	// TODO: Add an stack to handle nested scopes.
