@@ -1,0 +1,4 @@
+probability of totalIncome as{
+    from "21-01-2027",
+    up "21-02-2026"
+} > 2000000.00;

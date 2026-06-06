@@ -1,5 +1,6 @@
 #include "SemanticAnalysis.h"
 #include "../../frontend/syntactic-analysis/AbstractSyntaxTree.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -13,6 +14,8 @@ static Logger * _logger = NULL;
 static void _logSemanticAnalysisAction(const char * functionName) {
 	logDebugging(_logger, "%s", functionName);
 }
+
+/* -- Symbol table helpers -- */
 
 static SymbolTableEntry * _findSymbol(const char * identifier) {
 	SymbolTableEntry * entry = _compilerState->symbolTable;
@@ -58,6 +61,128 @@ static void _destroySymbolTable(SymbolTableEntry * table) {
 	}
 }
 
+/* -- Division by zero helpers -- */
+
+/*
+ * Attempts to evaluate expr as a fully-constant arithmetic expression.
+ * Returns 1 and sets *result on success; returns 0 if any sub-expression
+ * contains a non-constant (identifier, query, etc.).
+ */
+static int _evaluateConstantExpr(Expression * expr, double * result) {
+	if (expr == NULL) return 0;
+	if (expr->type == FACTOR) {
+		Factor * f = expr->factor;
+		if (f->type == EXPRESSION) {
+			/* Parenthesized sub-expression: recurse into it */
+			return _evaluateConstantExpr(f->expression, result);
+		}
+		if (f->type != CONSTANT) return 0;
+		Constant * c = f->constant;
+		if (c->type == INTEGER_CONSTANT)    { *result = (double)c->intValue;  return 1; }
+		if (c->type == FLOAT_CONSTANT)      { *result = c->floatValue;        return 1; }
+		if (c->type == PERCENTAGE_CONSTANT) { *result = c->floatValue;        return 1; }
+		return 0;
+	}
+	double left, right;
+	if (!_evaluateConstantExpr(expr->leftExpression,  &left))  return 0;
+	if (!_evaluateConstantExpr(expr->rightExpression, &right)) return 0;
+	switch (expr->type) {
+		case ADDITION:       *result = left + right; return 1;
+		case SUBTRACTION:    *result = left - right; return 1;
+		case MULTIPLICATION: *result = left * right; return 1;
+		case DIVISION:       *result = left / right; return 1;
+		default: return 0;
+	}
+}
+
+static CompilationStatus _checkDivisionByZero(Expression * expr) {
+	if (expr == NULL) return SUCCEEDED;
+	if (expr->type == DIVISION) {
+		double divisor;
+		if (_evaluateConstantExpr(expr->rightExpression, &divisor) && divisor == 0.0) {
+			logError(_logger, "Semantic error: division by zero detected.");
+			return FAILED;
+		}
+	}
+	if (expr->type != FACTOR) {
+		if (_checkDivisionByZero(expr->leftExpression) == FAILED)  return FAILED;
+		if (_checkDivisionByZero(expr->rightExpression) == FAILED) return FAILED;
+	}
+	return SUCCEEDED;
+}
+
+static CompilationStatus _checkPropertiesDivisionByZero(Property * property) {
+	while (property != NULL) {
+		CompilationStatus status = SUCCEEDED;
+		switch (property->type) {
+			case PROPERTY_VALUE:       status = _checkDivisionByZero(property->valueExpr);      break;
+			case PROPERTY_UP:          status = _checkDivisionByZero(property->upExpr);         break;
+			case PROPERTY_BALANCE:     status = _checkDivisionByZero(property->balanceExpr);    break;
+			case PROPERTY_INTEREST:    status = _checkDivisionByZero(property->interestExpr);   break;
+			case PROPERTY_MIN_PAYMENT: status = _checkDivisionByZero(property->minPaymentExpr); break;
+			case PROPERTY_AMOUNT:      status = _checkDivisionByZero(property->amountExpr);     break;
+			default: break;
+		}
+		if (status == FAILED) return FAILED;
+		property = property->next;
+	}
+	return SUCCEEDED;
+}
+
+/* -- Date range helpers -- */
+
+/*
+ * Compares two dates in DD-MM-YYYY format.
+ * Returns negative if d1 < d2, 0 if equal, positive if d1 > d2.
+ * Returns 0 if either string cannot be parsed (safe: no false rejection).
+ */
+static int _compareDates(const char * d1, const char * d2) {
+	int day1, mon1, year1, day2, mon2, year2;
+	if (sscanf(d1, "%d-%d-%d", &day1, &mon1, &year1) != 3) return 0;
+	if (sscanf(d2, "%d-%d-%d", &day2, &mon2, &year2) != 3) return 0;
+	if (year1 != year2) return year1 - year2;
+	if (mon1  != mon2)  return mon1  - mon2;
+	return day1 - day2;
+}
+
+static CompilationStatus _checkDateRange(const char * from, const char * up, const char * context) {
+	if (from == NULL || up == NULL) return SUCCEEDED;
+	if (_compareDates(from, up) > 0) {
+		logError(_logger,
+			"Semantic error: 'from' date (%s) is later than 'up' date (%s) in \"%s\".",
+			from, up, context);
+		return FAILED;
+	}
+	return SUCCEEDED;
+}
+
+/* Extracts the date string from an expression that wraps a DATE_CONSTANT. */
+static const char * _extractDateFromExpr(Expression * expr) {
+	if (expr == NULL || expr->type != FACTOR) return NULL;
+	Factor * f = expr->factor;
+	if (f->type != CONSTANT) return NULL;
+	if (f->constant->type == DATE_CONSTANT) return f->constant->stringValue;
+	return NULL;
+}
+
+static CompilationStatus _checkBalanceDateRange(Declaration * decl) {
+	const char * from = NULL;
+	const char * up   = NULL;
+	Property * prop = decl->properties;
+	while (prop != NULL) {
+		if (prop->type == PROPERTY_FROM) from = prop->stringValue;
+		if (prop->type == PROPERTY_UP)   up   = _extractDateFromExpr(prop->upExpr);
+		prop = prop->next;
+	}
+	return _checkDateRange(from, up, decl->name != NULL ? decl->name : "balance");
+}
+
+static CompilationStatus _checkQueryBlockDateRange(QueryBlock * query) {
+	return _checkDateRange(query->from, query->up, "query block");
+}
+
+/* -- Module lifecycle -- */
+
 static void _shutdownSemanticAnalysisModule() {
 	if (_logger != NULL) {
 		logDebugging(_logger, "Destroying module: SemanticAnalysis...");
@@ -88,20 +213,58 @@ CompilationStatus executeSemanticAnalysis() {
 	Statement * statement = program->statements;
 	while (statement != NULL) {
 		if (statement->type == STATEMENT_DECLARATION) {
-			Declaration * declaration = statement->declaration;
-			if (declaration->name != NULL) {
-				if (_findSymbol(declaration->name) != NULL) {
+			Declaration * decl = statement->declaration;
+
+			/* 1. Duplicate identifier check */
+			if (decl->name != NULL) {
+				if (_findSymbol(decl->name) != NULL) {
 					logError(_logger,
 						"Semantic error: identifier \"%s\" is already declared.",
-						declaration->name);
+						decl->name);
 					return FAILED;
 				}
-				_addSymbol(declaration->name, _declarationTypeName(declaration->type));
+				_addSymbol(decl->name, _declarationTypeName(decl->type));
 				logDebugging(_logger, "Added symbol: \"%s\" (%s)",
-					declaration->name, _declarationTypeName(declaration->type));
+					decl->name, _declarationTypeName(decl->type));
+			}
+
+			/* 2. Division by zero in property expressions
+			 * DECLARATION_DERIVATED_EXPR uses derivedExpr (union overlap) — skip. */
+			if (decl->type != DECLARATION_DERIVATED_EXPR) {
+				if (_checkPropertiesDivisionByZero(decl->properties) == FAILED) return FAILED;
+			}
+
+			/* 3. Date range in balance declarations */
+			if (decl->type == DECLARATION_BALANCE) {
+				if (_checkBalanceDateRange(decl) == FAILED) return FAILED;
+			}
+
+			/* 4. Date range in standalone query expressions */
+			if (decl->type == DECLARATION_DERIVATED_EXPR && decl->derivedExpr != NULL) {
+				if (_checkDivisionByZero(decl->derivedExpr) == FAILED) return FAILED;
+				Expression * expr = decl->derivedExpr;
+				if (expr->type == FACTOR && expr->factor->type == QUERY) {
+					if (_checkQueryBlockDateRange(expr->factor->query) == FAILED) return FAILED;
+				}
 			}
 		}
+
+		if (statement->type == STATEMENT_COMMAND) {
+			Command * cmd = statement->command;
+
+			/* 5. Date range in query blocks — only COMMAND_PROBABILITY has a query field.
+			 * Other command types use the same union bytes for currency/periodicity/installments. */
+			if (cmd->type == COMMAND_PROBABILITY && cmd->query != NULL) {
+				if (_checkQueryBlockDateRange(cmd->query) == FAILED) return FAILED;
+			}
+		}
+
 		statement = statement->next;
+	}
+
+	/* 6. Division by zero in top-level expression (program->expression mode) */
+	if (program->expression != NULL) {
+		if (_checkDivisionByZero(program->expression) == FAILED) return FAILED;
 	}
 
 	logDebugging(_logger, "Semantic analysis completed successfully.");
