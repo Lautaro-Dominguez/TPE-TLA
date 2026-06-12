@@ -39,19 +39,7 @@ const int main(const int length, const char ** arguments) {
 		logDebugging(logger, "Running semantic analysis...");
 		compilationStatus = executeSemanticAnalysis();
 		if (compilationStatus == SUCCEEDED) {
-			// ----------------------------------------------------------------------------------------
-			// Beginning of the Backend... ------------------------------------------------------------
-			/*logDebugging(logger, "Computing expression value...");
-			ComputationResult computationResult = executeCalculator(&compilerState);
-			if (computationResult.succeeded) {
-				executeGenerator(&compilerState);
-			}
-			else {
-				logError(logger, "The computation phase rejects the input program.");
-				compilationStatus = FAILED;
-			}*/
-			// ...end of the Backend. -----------------------------------------------------------------
-			// ----------------------------------------------------------------------------------------
+			executeGenerator(&compilerState);
 		}
 		else {
 			logError(logger, "The semantic-analysis phase rejects the input program.");
