@@ -181,6 +181,29 @@ static CompilationStatus _checkQueryBlockDateRange(QueryBlock * query) {
 	return _checkDateRange(query->from, query->up, "query block");
 }
 
+/* -- Command target validation -- */
+
+static CompilationStatus _checkCommandTargetDeclared(Command * cmd) {
+	switch (cmd->type) {
+		case COMMAND_EXCHANGE:
+		case COMMAND_CHANGE_PERIODICITY:
+		case COMMAND_EXPORT:
+		case COMMAND_CIRCLE_GRAPHIC:
+		case COMMAND_CIRCLE_GRAPHIC_BY_CATEGORY:
+		case COMMAND_PLAN:
+			if (cmd->targetName != NULL && _findSymbol(cmd->targetName) == NULL) {
+				logError(_logger,
+					"Semantic error: identifier \"%s\" is not declared.",
+					cmd->targetName);
+				return FAILED;
+			}
+			break;
+		default:
+			break;
+	}
+	return SUCCEEDED;
+}
+
 /* -- Module lifecycle -- */
 
 static void _shutdownSemanticAnalysisModule() {
@@ -252,7 +275,10 @@ CompilationStatus executeSemanticAnalysis() {
 		if (statement->type == STATEMENT_COMMAND) {
 			Command * cmd = statement->command;
 
-			/* 5. Date range in query blocks — only COMMAND_PROBABILITY has a query field.
+			/* 5. Referenced identifier must already be declared */
+			if (_checkCommandTargetDeclared(cmd) == FAILED) return FAILED;
+
+			/* 6. Date range in query blocks — only COMMAND_PROBABILITY has a query field.
 			 * Other command types use the same union bytes for currency/periodicity/installments. */
 			if (cmd->type == COMMAND_PROBABILITY && cmd->query != NULL) {
 				if (_checkQueryBlockDateRange(cmd->query) == FAILED) return FAILED;
