@@ -181,6 +181,66 @@ static CompilationStatus _checkQueryBlockDateRange(QueryBlock * query) {
 	return _checkDateRange(query->from, query->up, "query block");
 }
 
+static CompilationStatus _checkExpressionNumeric(Expression * expr) {
+	if (expr == NULL) return SUCCEEDED;
+
+	if (expr->type == FACTOR) {
+		Factor * f = expr->factor;
+		if (f->type == EXPRESSION) {
+			return _checkExpressionNumeric(f->expression);
+		}
+		if (f->type == QUERY) {
+			return SUCCEEDED; /* queries return numeric totals */
+		}
+		/* f->type == CONSTANT */
+		ConstantType ct = f->constant->type;
+		if (ct == STRING_CONSTANT || ct == DATE_CONSTANT) {
+			logError(_logger,
+				"Semantic error: non-numeric value used in arithmetic expression.");
+			return FAILED;
+		}
+		if (ct == IDENTIFIER_CONSTANT) {
+			const char * name = f->constant->stringValue;
+			SymbolTableEntry * entry = _findSymbol(name);
+			if (entry == NULL) {
+				logError(_logger,
+					"Semantic error: identifier \"%s\" is not declared.", name);
+				return FAILED;
+			}
+			if (strcmp(entry->type, "derivatedData") != 0 &&
+			    strcmp(entry->type, "derivatedExpr") != 0) {
+				logError(_logger,
+					"Semantic error: identifier \"%s\" (type \"%s\") cannot be used in arithmetic expressions.",
+					name, entry->type);
+				return FAILED;
+			}
+		}
+		return SUCCEEDED;
+	}
+
+	if (_checkExpressionNumeric(expr->leftExpression)  == FAILED) return FAILED;
+	if (_checkExpressionNumeric(expr->rightExpression) == FAILED) return FAILED;
+	return SUCCEEDED;
+}
+
+static CompilationStatus _checkPropertiesNumeric(Property * property) {
+	while (property != NULL) {
+		CompilationStatus status = SUCCEEDED;
+		switch (property->type) {
+			case PROPERTY_VALUE:       status = _checkExpressionNumeric(property->valueExpr);      break;
+			case PROPERTY_BALANCE:     status = _checkExpressionNumeric(property->balanceExpr);    break;
+			case PROPERTY_INTEREST:    status = _checkExpressionNumeric(property->interestExpr);   break;
+			case PROPERTY_MIN_PAYMENT: status = _checkExpressionNumeric(property->minPaymentExpr); break;
+			case PROPERTY_AMOUNT:      status = _checkExpressionNumeric(property->amountExpr);     break;
+			/* PROPERTY_UP holds a DATE_CONSTANT (balance declaration) — not a numeric context */
+			default: break;
+		}
+		if (status == FAILED) return FAILED;
+		property = property->next;
+	}
+	return SUCCEEDED;
+}
+
 /* -- Command target validation -- */
 
 static CompilationStatus _checkCommandTargetDeclared(Command * cmd) {
@@ -251,10 +311,11 @@ CompilationStatus executeSemanticAnalysis() {
 					decl->name, _declarationTypeName(decl->type));
 			}
 
-			/* 2. Division by zero in property expressions
+			/* 2. Division by zero + numeric operand check in property expressions.
 			 * DECLARATION_DERIVATED_EXPR uses derivedExpr (union overlap) — skip. */
 			if (decl->type != DECLARATION_DERIVATED_EXPR) {
 				if (_checkPropertiesDivisionByZero(decl->properties) == FAILED) return FAILED;
+				if (_checkPropertiesNumeric(decl->properties)         == FAILED) return FAILED;
 			}
 
 			/* 3. Date range in balance declarations */
@@ -262,9 +323,10 @@ CompilationStatus executeSemanticAnalysis() {
 				if (_checkBalanceDateRange(decl) == FAILED) return FAILED;
 			}
 
-			/* 4. Date range in standalone query expressions */
+			/* 4. Checks for derivated expressions */
 			if (decl->type == DECLARATION_DERIVATED_EXPR && decl->derivedExpr != NULL) {
-				if (_checkDivisionByZero(decl->derivedExpr) == FAILED) return FAILED;
+				if (_checkDivisionByZero(decl->derivedExpr)    == FAILED) return FAILED;
+				if (_checkExpressionNumeric(decl->derivedExpr) == FAILED) return FAILED;
 				Expression * expr = decl->derivedExpr;
 				if (expr->type == FACTOR && expr->factor->type == QUERY) {
 					if (_checkQueryBlockDateRange(expr->factor->query) == FAILED) return FAILED;
@@ -288,9 +350,10 @@ CompilationStatus executeSemanticAnalysis() {
 		statement = statement->next;
 	}
 
-	/* 6. Division by zero in top-level expression (program->expression mode) */
+	/* 7. Top-level expression (program->expression mode) */
 	if (program->expression != NULL) {
-		if (_checkDivisionByZero(program->expression) == FAILED) return FAILED;
+		if (_checkDivisionByZero(program->expression)    == FAILED) return FAILED;
+		if (_checkExpressionNumeric(program->expression) == FAILED) return FAILED;
 	}
 
 	logDebugging(_logger, "Semantic analysis completed successfully.");
