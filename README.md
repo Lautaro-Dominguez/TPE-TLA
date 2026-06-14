@@ -100,3 +100,7 @@ To trigger an automatic integration on every push or PR (_Pull Request_), you mu
 * [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
 * [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools)
 * [Yash](https://marketplace.visualstudio.com/items?itemName=daohong-emilio.yash)
+
+## Other libraries used
+* [Knowm XChart](https://github.com/knowm/XChart) version 3.8.8
+* [Coinbase API](https://docs.cdp.coinbase.com/coinbase-business/track-apis/exchange-rates) version 2 
